@@ -1,0 +1,3 @@
+# This is the head of the generated wpa_supplicant.conf
+#
+# You can put global config option such as the ctrl_interface here.

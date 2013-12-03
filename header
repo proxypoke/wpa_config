@@ -1,0 +1,11 @@
+#!/usr/share/python2
+# -*- coding: utf-8 -*-
+#
+# wpa_config - a config manager for wpa_supplicant
+#
+# Author: slowpoke <mail+git@slowpoke.io>
+#
+# This program is Free Software under the non-terms
+# of the Anti-License. Do whatever the fuck you want.
+#
+# Github: https://github.com/proxypoke/wpa_config

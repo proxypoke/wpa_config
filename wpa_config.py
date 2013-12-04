@@ -180,7 +180,7 @@ def main():
                           help="directory to use as base (default: {})".format(
                               CONFIG_ROOT))
     add_mode.add_argument("-o", "--open", action="store_true",
-                          help="connect to an open network")
+                          help="configure for an open network")
     add_mode.set_defaults(func=add)
 
     delete_mode = commands.add_parser("del", help="remove a network")

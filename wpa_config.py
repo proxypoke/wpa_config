@@ -12,6 +12,7 @@
 
 """wpa_config - a small helper for wpa_supplicant."""
 
+from __future__ import print_function
 
 import argparse
 import subprocess
@@ -39,7 +40,25 @@ def merge_files(network_dir=None):
     return merge
 
 
-def mkentry(ssid, passphrase):
+def mkentry(ssid, **options):
+    """Generic function for creating network entries in wpa_supplicant.conf.
+
+    WARNING: Input is not checked in any way!
+
+    IMPORTANT: If an option needs to be quoted, it needs to be given as such.
+    An example would be the psk entry. You MUST use double-quotes,
+    wpa_supplicant will fail to parse single-quotes.
+
+    """
+    entry = 'network={\n'
+    entry += '\tssid="{}"\n'.format(ssid)
+    for optname in options:
+        entry += '\t{}={}\n'.format(optname, options[optname])
+    entry += '}'
+    return entry
+
+
+def wpa_passphrase(ssid, passphrase):
     """Call wpa_passphrase to generate an entry for the config.
 
     Arguments:
@@ -47,7 +66,6 @@ def mkentry(ssid, passphrase):
         passphrase -- the passphrase
 
     """
-    # TODO: make reading from stdin possible
     return subprocess.check_output(["wpa_passphrase",
                                     ssid, '"{}"'.format(passphrase)])
 
@@ -60,18 +78,26 @@ def mkconfigfile(ssid, network_dir=None):
 
     """
     network_dir = NETWORK_DIR if network_dir is None else network_dir
-    #cfile = tempfile.mkstemp(prefix=ssid + "_",
-                             #suffix=".conf",
-                             #dir=network_dir)
-    #return os.fdopen(cfile[0], "w")
     return open(os.path.join(network_dir, ssid + ".conf"))
 
 
 # Commands for the CLI frontend
 
 def add(args):
-    # TODO: input sanity checking
-    entry = mkentry(args.ssid, args.passphrase)
+    if args.open:
+        entry = mkentry(args.ssid, key_mgmt="NONE")
+    else:
+        # check passphrase length
+        l = len(args.passphrase)
+        if l < 8 or l > 63:
+            print("Passphrase must be 8..63 characters.")
+            exit(1)
+        entry = wpa_passphrase(args.ssid, args.passphrase)
+
+    if args.print:
+        print(entry)
+        return
+
     try:
         cfile = mkconfigfile(args.ssid, args.directory)
         cfile.write(entry)
@@ -95,6 +121,10 @@ def make(args):
     config += "\n\n"
     config += config_tail
 
+    if args.print:
+        print(config)
+        exit(0)
+
     try:
         with open(WPA_SUPPLICANT_CONFIG, "w") as cfile:
             cfile.write(config)
@@ -109,13 +139,20 @@ def main():
 
     add_mode = commands.add_parser("add", help="add a network")
     add_mode.add_argument("ssid", type=str, help="network name")
-    add_mode.add_argument("passphrase", type=str, help="wpa passphrase")
+    add_mode.add_argument("passphrase", type=str, help="wpa passphrase",
+                          nargs="?", default="")
+    add_mode.add_argument("-p", "--print", action="store_true",
+                          help="print config instead of writing it")
     add_mode.add_argument("-d", "--directory", type=str,
                           help="directory to use as base (default: {})".format(
                               CONFIG_ROOT))
+    add_mode.add_argument("-o", "--open", action="store_true",
+                          help="connect to an open network")
     add_mode.set_defaults(func=add)
 
     make_mode = commands.add_parser("make", help="create the config")
+    make_mode.add_argument("-p", "--print", action="store_true",
+                           help="print config instead of writing it")
     make_mode.set_defaults(func=make)
 
     help_mode = commands.add_parser("help", help="print this help")

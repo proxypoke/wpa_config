@@ -1,4 +1,4 @@
-WPA_CONFIG(1)
+WPA_CONFIG(8)
 =============
 
 NAME

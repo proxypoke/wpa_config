@@ -156,6 +156,16 @@ def delete(args):
     os.unlink(fullpath)
 
 
+def show(args):
+    fullpath = os.path.join(NETWORK_DIR, args.ssid + ".conf")
+    if not os.path.isfile(fullpath):
+        print(
+            "Network '{}' is not configured with wpa_config.".format(fullpath))
+        exit(1)
+    with open(fullpath) as network:
+        print(network.read())
+
+
 def main():
     parser = argparse.ArgumentParser()
     commands = parser.add_subparsers()
@@ -184,6 +194,10 @@ def main():
 
     list_mode = commands.add_parser("list", help="list configured networks")
     list_mode.set_defaults(func=list_networks)
+
+    show_mode = commands.add_parser("show", help="show network configuration")
+    show_mode.add_argument("ssid", type=str, help="network name")
+    show_mode.set_defaults(func=show)
 
     help_mode = commands.add_parser("help", help="print this help")
     help_mode.set_defaults(func=lambda _: parser.print_help())

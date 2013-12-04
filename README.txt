@@ -59,6 +59,24 @@ Create a new file in the network directory. Currently, this only works for WPA
 secured networks. Specifying more options (open networks, WEP, ad-hoc, etc) 
 will be added later.
 
+del
+~~~
+Delete a network in the network directory, if it exists.
+
+list
+~~~~
+List all networks configured through wpa_config. Note that this does not list 
+networks configured in wpa_supplicant.conf.tail.
+
+show
+~~~~
+Print the configuration of a network.
+
+make
+~~~~
+Merge all config and network files into wpa_supplicant.conf, writing it to 
+WPA_SUPPLICANT_CONFIG (usually /etc/wpa_supplicant/wpa_supplicant.conf).
+
 SEE ALSO
 --------
 * wpa_supplicant(8)

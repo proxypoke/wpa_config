@@ -133,6 +133,11 @@ def make(args):
         exit(1)
 
 
+def list_networks(_):
+    for network in os.listdir(NETWORK_DIR):
+        print(os.path.splitext(network)[0])
+
+
 def main():
     parser = argparse.ArgumentParser()
     commands = parser.add_subparsers()
@@ -154,6 +159,9 @@ def main():
     make_mode.add_argument("-p", "--print", action="store_true",
                            help="print config instead of writing it")
     make_mode.set_defaults(func=make)
+
+    list_mode = commands.add_parser("list", help="list configured networks")
+    list_mode.set_defaults(func=list_networks)
 
     help_mode = commands.add_parser("help", help="print this help")
     help_mode.set_defaults(func=lambda _: parser.print_help())

@@ -81,6 +81,12 @@ def mkconfigfile(ssid, network_dir=None):
     return open(os.path.join(network_dir, ssid + ".conf"), "w")
 
 
+def mkbackup(path):
+    """Create a backup file of the given file, named ${FILE}.bkp."""
+    with open(path + ".bkp", "w") as bkp_file, open(path) as orig_file:
+        bkp_file.write(orig_file.read())
+
+
 # Commands for the CLI frontend
 
 def add(args):
@@ -126,6 +132,9 @@ def make(args):
         exit(0)
 
     try:
+        mkbackup(WPA_SUPPLICANT_CONFIG)
+        print("Backup of wpa_supplicant.conf written to {}.".format(
+            WPA_SUPPLICANT_CONFIG + ".bkp"))
         with open(WPA_SUPPLICANT_CONFIG, "w") as cfile:
             cfile.write(config)
     except OSError, e:

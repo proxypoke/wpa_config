@@ -78,7 +78,7 @@ def mkconfigfile(ssid, network_dir=None):
 
     """
     network_dir = NETWORK_DIR if network_dir is None else network_dir
-    return open(os.path.join(network_dir, ssid + ".conf"))
+    return open(os.path.join(network_dir, ssid + ".conf"), "w")
 
 
 # Commands for the CLI frontend

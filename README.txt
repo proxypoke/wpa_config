@@ -42,7 +42,7 @@ or the eapol_version.
 wpa_supplicant.conf.tail
 ~~~~~~~~~~~~~~~~~~~~~~~~
 This file is appended to the generated config. It's a great way to migrate your 
-currently configured networko, no need to reconfigure them.
+currently configured networks, no need to reconfigure them.
 
 networks.d/
 ~~~~~~~~~~~

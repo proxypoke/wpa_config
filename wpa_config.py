@@ -138,6 +138,15 @@ def list_networks(_):
         print(os.path.splitext(network)[0])
 
 
+def delete(args):
+    fullpath = os.path.join(NETWORK_DIR, args.ssid + ".conf")
+    if not os.path.isfile(fullpath):
+        print(
+            "Network '{}' is not configured with wpa_config.".format(fullpath))
+        exit(1)
+    os.unlink(fullpath)
+
+
 def main():
     parser = argparse.ArgumentParser()
     commands = parser.add_subparsers()
@@ -154,6 +163,10 @@ def main():
     add_mode.add_argument("-o", "--open", action="store_true",
                           help="connect to an open network")
     add_mode.set_defaults(func=add)
+
+    delete_mode = commands.add_parser("del", help="remove a network")
+    delete_mode.add_argument("ssid", type=str, help="network name")
+    delete_mode.set_defaults(func=delete)
 
     make_mode = commands.add_parser("make", help="create the config")
     make_mode.add_argument("-p", "--print", action="store_true",

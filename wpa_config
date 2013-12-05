@@ -81,10 +81,57 @@ def mkconfigfile(ssid, network_dir=None):
     return open(os.path.join(network_dir, ssid + ".conf"), "w")
 
 
+def parse_network_block(netblock):
+    """Parse a network block, returning a dict of its options.
+
+    The resulting dict can be fed back to mkentry after extracting the ssid.
+
+    """
+    lines = netblock.split("\n")
+    # throw away the first and last lines, and remove indentation
+    lines = [line.strip() for line in lines[1:-1]]
+    options = {}
+    for line in lines:
+        split = line.split("=")
+        option = split[0]
+        if len(split) == 2:
+            value = split[1]
+        else:
+            value = "=".join(split[1:])
+        options[option] = value
+    return options
+
+
 def mkbackup(path):
     """Create a backup file of the given file, named ${FILE}.bkp."""
     with open(path + ".bkp", "w") as bkp_file, open(path) as orig_file:
         bkp_file.write(orig_file.read())
+
+
+def extract_networks(path):
+    """Extract all network blocks from a file.
+
+    Returns a list of networks represented as dicts.
+
+    """
+    with open(path) as netfile:
+        config = netfile.read()
+    networks = []
+    in_block = False
+    netblock = []
+    for line in config.split("\n"):
+        if line.startswith("#"):
+            continue
+        # this is really crappy "parsing" but it should work
+        if line.strip() == "network={" and not in_block:
+            in_block = True
+        if in_block:
+            netblock.append(line)
+        if line.strip() == "}" and in_block:
+            in_block = False
+            nb = "\n".join(netblock)
+            networks.append(parse_network_block(nb))
+    return networks
 
 
 # Commands for the CLI frontend

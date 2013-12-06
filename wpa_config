@@ -120,17 +120,19 @@ def extract_networks(path):
     in_block = False
     netblock = []
     for line in config.split("\n"):
+        line = line.strip()
         if line.startswith("#"):
             continue
         # this is really crappy "parsing" but it should work
-        if line.strip() == "network={" and not in_block:
+        if line == "network={" and not in_block:
             in_block = True
         if in_block:
             netblock.append(line)
-        if line.strip() == "}" and in_block:
+        if line == "}" and in_block:
             in_block = False
             nb = "\n".join(netblock)
             networks.append(parse_network_block(nb))
+            netblock = []
     return networks
 
 

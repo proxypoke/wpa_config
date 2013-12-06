@@ -158,7 +158,7 @@ def add(args):
         return
 
     try:
-        cfile = mkconfigfile(args.ssid, args.directory)
+        cfile = mkconfigfile(args.ssid)
         cfile.write(entry)
     except OSError, e:
         print("Couldn't write config file: {}".format(e))
@@ -245,9 +245,9 @@ def main():
                           nargs="?", default="")
     add_mode.add_argument("-p", "--print", action="store_true",
                           help="print config instead of writing it")
-    add_mode.add_argument("-d", "--directory", type=str,
-                          help="directory to use as base (default: {})".format(
-                              CONFIG_ROOT))
+    #add_mode.add_argument("-d", "--directory", type=str,
+                          #help="directory to use as base (default: {})".format(
+                              #CONFIG_ROOT))
     add_mode.add_argument("-o", "--open", action="store_true",
                           help="configure for an open network")
     add_mode.set_defaults(func=add)

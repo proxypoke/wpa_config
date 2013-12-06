@@ -56,8 +56,8 @@ wpa_config has severeal subcommands which do all the work.
 add
 ~~~
 Create a new file in the network directory. Currently, this only works for WPA 
-secured networks. Specifying more options (open networks, WEP, ad-hoc, etc) 
-will be added later.
+secured and open (unencrypted) networks. Specifying more options ( WEP, ad-hoc, 
+etc) will be added later.
 
 del
 ~~~
@@ -76,6 +76,15 @@ make
 ~~~~
 Merge all config and network files into wpa_supplicant.conf, writing it to 
 WPA_SUPPLICANT_CONFIG (usually /etc/wpa_supplicant/wpa_supplicant.conf).
+
+edit
+~~~~
+Open an editor (specified by the EDITOR environment variable) to change the 
+config of a network.
+
+help
+~~~~
+Show a help message. Same as specifying -h or --help.
 
 SEE ALSO
 --------

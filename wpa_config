@@ -27,6 +27,11 @@ NETWORK_DIR = os.path.join(CONFIG_ROOT, "networks.d")
 WPA_SUPPLICANT_CONFIG = "/etc/wpa_supplicant/wpa_supplicant.conf"
 
 
+def cfile_path(ssid):
+    """Return the path of the config file for an SSID."""
+    return os.path.join(NETWORK_DIR, ssid + ".conf")
+
+
 def merge_files(network_dir=None):
     """Merge all files in the network_dir directory."""
     network_dir = NETWORK_DIR if network_dir is None else network_dir
@@ -70,15 +75,14 @@ def wpa_passphrase(ssid, passphrase):
                                     ssid, '"{}"'.format(passphrase)])
 
 
-def mkconfigfile(ssid, network_dir=None):
+def mkconfigfile(ssid):
     """Create a config file in the config file directory.
 
     Returns:
         the created config file as a file object.
 
     """
-    network_dir = NETWORK_DIR if network_dir is None else network_dir
-    return open(os.path.join(network_dir, ssid + ".conf"), "w")
+    return open(cfile_path(ssid))
 
 
 def parse_network_block(netblock):
@@ -197,22 +201,38 @@ def list_networks(_):
 
 
 def delete(args):
-    fullpath = os.path.join(NETWORK_DIR, args.ssid + ".conf")
-    if not os.path.isfile(fullpath):
+    cfile = cfile_path(args.ssid)
+    if not os.path.isfile(cfile):
         print(
-            "Network '{}' is not configured with wpa_config.".format(fullpath))
+            "Network '{}' is not configured with wpa_config.".format(cfile))
         exit(1)
-    os.unlink(fullpath)
+    os.unlink(cfile)
 
 
 def show(args):
-    fullpath = os.path.join(NETWORK_DIR, args.ssid + ".conf")
-    if not os.path.isfile(fullpath):
+    cfile = cfile_path(args.ssid)
+    if not os.path.isfile(cfile):
         print(
-            "Network '{}' is not configured with wpa_config.".format(fullpath))
+            "Network '{}' is not configured with wpa_config.".format(cfile))
         exit(1)
-    with open(fullpath) as network:
+    with open(cfile) as network:
         print(network.read())
+
+
+def edit(args):
+    editor = os.getenv("EDITOR")
+    if editor is None:
+        print("You don't appear to have an editor set.")
+        exit(1)
+    cfile = cfile_path(args.ssid)
+    if not os.path.isfile(cfile) and not args.create:
+        print("Config for '{}' does not exist. Use -c to create it.".format(
+            args.ssid))
+        exit(1)
+    try:
+        subprocess.call([editor, cfile])
+    except Exception, e:
+        print("Failed to invoke editor: {}".format(e))
 
 
 def main():
@@ -247,6 +267,13 @@ def main():
     show_mode = commands.add_parser("show", help="show network configuration")
     show_mode.add_argument("ssid", type=str, help="network name")
     show_mode.set_defaults(func=show)
+
+    edit_mode = commands.add_parser(
+        "edit", help="edit a network with an editor")
+    edit_mode.add_argument("ssid", type=str, help="network name")
+    edit_mode.add_argument("-c", "--create", action="store_true",
+                           help="create the config file if it doesn't exist")
+    edit_mode.set_defaults(func=edit)
 
     help_mode = commands.add_parser("help", help="print this help")
     help_mode.set_defaults(func=lambda _: parser.print_help())

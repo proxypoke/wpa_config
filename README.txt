@@ -63,24 +63,31 @@ del
 ~~~
 Delete a network in the network directory, if it exists.
 
+show
+~~~~
+Print the configuration of a network.
+
+edit
+~~~~
+Open an editor (specified by the EDITOR environment variable) to change the 
+config of a network.
+
 list
 ~~~~
 List all networks configured through wpa_config. Note that this does not list 
 networks configured in wpa_supplicant.conf.tail.
-
-show
-~~~~
-Print the configuration of a network.
 
 make
 ~~~~
 Merge all config and network files into wpa_supplicant.conf, writing it to 
 WPA_SUPPLICANT_CONFIG (usually /etc/wpa_supplicant/wpa_supplicant.conf).
 
-edit
-~~~~
-Open an editor (specified by the EDITOR environment variable) to change the 
-config of a network.
+migrate
+~~~~~~~
+Migrate your old wpa_supplicant.conf to wpa_config. This extracts all 
+configured (and uncommented) networks from wpa_supplicant.conf, and creates 
+single config files in the networks.d/ directory for them. This strips all 
+comments, so be careful.
 
 help
 ~~~~

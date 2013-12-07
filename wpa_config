@@ -81,7 +81,6 @@ class Network(object):
         """Create a new network object by parsing a string."""
         lines = string.split("\n")
         # throw away the first and last lines, and remove indentation
-        print(lines)
         lines = [line.strip() for line in lines[1:-1]]
         opts = {}
         for line in lines:
@@ -251,6 +250,24 @@ def edit(args):
         print("Failed to invoke editor: {}".format(e))
 
 
+def migrate(args):
+    networks = extract_networks(args.config)
+    exit_status = 0
+    for network in networks:
+        try:
+            network.write(network_dir=args.directory,
+                          overwrite=args.force)
+        except FileExistsError:
+            print("Config for '{}' already exists.".format(network.ssid),
+                  "Refusing to overwrite unless explicitly",
+                  "told to. (-f/--force)")
+            exit_status = 1
+        except OSError, e:
+            print("Couldn't write config file: {}".format(e))
+            exit_status = 1
+    exit(exit_status)
+
+
 def main():
     parser = argparse.ArgumentParser()
     commands = parser.add_subparsers()
@@ -307,6 +324,17 @@ def main():
     make_mode.add_argument("-p", "--print", action="store_true",
                            help="print config instead of writing it")
     make_mode.set_defaults(func=make)
+
+    migrate_mode = commands.add_parser("migrate",
+                                       help="migrate your old config")
+    dir_opt(migrate_mode)
+    migrate_mode.add_argument("-c", "--config", type=str,
+                              help="path to wpa_supplicant.conf",
+                              default=WPA_SUPPLICANT_CONFIG)
+    migrate_mode.add_argument("-f", "--force", action="store_true",
+                              help="overwrite existing config files. " +
+                              "(DANGEROUS)")
+    migrate_mode.set_defaults(func=migrate)
 
     help_mode = commands.add_parser("help", help="print help for a mode")
     help_mode.set_defaults(func=lambda _: parser.print_help())

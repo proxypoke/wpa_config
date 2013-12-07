@@ -27,14 +27,86 @@ NETWORK_DIR = os.path.join(CONFIG_ROOT, "networks.d")
 WPA_SUPPLICANT_CONFIG = "/etc/wpa_supplicant/wpa_supplicant.conf"
 
 
-def cfile_path(ssid):
+class FileExistsError(Exception):
+    pass
+
+
+class Network(object):
+
+    """Represents a single network block in wpa_supplicant.conf."""
+
+    def __init__(self, ssid, **opts):
+        self.ssid = ssid
+        self.opts = opts
+
+    def __repr__(self):
+        string = 'network={\n'
+        string += '\tssid="{}"\n'.format(self.ssid)
+        for opt, val in self.opts.items():
+            string += '\t{}={}\n'.format(opt, val)
+        string += '}'
+        return string
+
+    def write(self, overwrite=False, network_dir=NETWORK_DIR):
+        u"""Write to the appropriate config file.
+
+        Will refuse to overwrite an already present file unless explicitly told
+        to do so via the 'overwrite' parameter.
+
+        Arguments:
+            overwrite -- ignore any existing files. Defaults to False.
+            network_dir -- the directory in which the config files reside.
+                Defaults to NETWORK_DIR (global setting).
+
+        Raises:
+            FileExistsError -- File exists and overwrite is False.
+            IOError -- Permission issue, wrong file type, other OS issue…
+
+        """
+        cfile = cfile_path(self.ssid, network_dir)
+        if os.path.exists(cfile) and not overwrite:
+            raise FileExistsError
+        with open(cfile, "w") as f:
+            f.write(repr(self))
+
+    @classmethod
+    def from_file(cls, ssid, network_dir=NETWORK_DIR):
+        """Create a new Network object from a config file."""
+        cfile = cfile_path(ssid, network_dir)
+        with open(cfile) as f:
+            return cls.from_string(f.read())
+
+    @classmethod
+    def from_string(cls, string):
+        """Create a new network object by parsing a string."""
+        lines = string.split("\n")
+        # throw away the first and last lines, and remove indentation
+        print(lines)
+        lines = [line.strip() for line in lines[1:-1]]
+        opts = {}
+        for line in lines:
+            split = line.split("=")
+            opt = split[0]
+            if len(split) == 2:
+                value = split[1]
+            else:
+                value = "=".join(split[1:])
+            opts[opt] = value
+
+        # remove the SSID from the other options and strip the quotes from it.
+        ssid = opts["ssid"][1:-1]
+        del opts["ssid"]
+
+        return cls(ssid, **opts)
+
+
+def cfile_path(ssid, network_dir=NETWORK_DIR):
     """Return the path of the config file for an SSID."""
-    return os.path.join(NETWORK_DIR, ssid + ".conf")
+    return os.path.join(network_dir, ssid + ".conf")
 
 
-def merge_files(network_dir=None):
-    """Merge all files in the network_dir directory."""
-    network_dir = NETWORK_DIR if network_dir is None else network_dir
+def merge_cfiles(network_dir=NETWORK_DIR):
+    """Merge all config files in the network_dir directory."""
     cfiles = [os.path.join(network_dir, cfile)
               for cfile in os.listdir(network_dir)
               if cfile.endswith(".conf")]
@@ -43,67 +115,6 @@ def merge_files(network_dir=None):
         with open(cfile) as f:
             merge += f.read()
     return merge
-
-
-def mkentry(ssid, **options):
-    """Generic function for creating network entries in wpa_supplicant.conf.
-
-    WARNING: Input is not checked in any way!
-
-    IMPORTANT: If an option needs to be quoted, it needs to be given as such.
-    An example would be the psk entry. You MUST use double-quotes,
-    wpa_supplicant will fail to parse single-quotes.
-
-    """
-    entry = 'network={\n'
-    entry += '\tssid="{}"\n'.format(ssid)
-    for optname in options:
-        entry += '\t{}={}\n'.format(optname, options[optname])
-    entry += '}'
-    return entry
-
-
-def wpa_passphrase(ssid, passphrase):
-    """Call wpa_passphrase to generate an entry for the config.
-
-    Arguments:
-        ssid       -- the name of the network
-        passphrase -- the passphrase
-
-    """
-    return subprocess.check_output(["wpa_passphrase",
-                                    ssid, '"{}"'.format(passphrase)])
-
-
-def mkconfigfile(ssid):
-    """Create a config file in the config file directory.
-
-    Returns:
-        the created config file as a file object.
-
-    """
-    return open(cfile_path(ssid))
-
-
-def parse_network_block(netblock):
-    """Parse a network block, returning a dict of its options.
-
-    The resulting dict can be fed back to mkentry after extracting the ssid.
-
-    """
-    lines = netblock.split("\n")
-    # throw away the first and last lines, and remove indentation
-    lines = [line.strip() for line in lines[1:-1]]
-    options = {}
-    for line in lines:
-        split = line.split("=")
-        option = split[0]
-        if len(split) == 2:
-            value = split[1]
-        else:
-            value = "=".join(split[1:])
-        options[option] = value
-    return options
 
 
 def mkbackup(path):
@@ -115,7 +126,7 @@ def mkbackup(path):
 def extract_networks(path):
     """Extract all network blocks from a file.
 
-    Returns a list of networks represented as dicts.
+    Returns a list of Network objects.
 
     """
     with open(path) as netfile:
@@ -135,7 +146,7 @@ def extract_networks(path):
         if line == "}" and in_block:
             in_block = False
             nb = "\n".join(netblock)
-            networks.append(parse_network_block(nb))
+            networks.append(Network.from_string(nb))
             netblock = []
     return networks
 
@@ -143,27 +154,31 @@ def extract_networks(path):
 # Commands for the CLI frontend
 
 def add(args):
+    network = Network(args.ssid)
     if args.open:
-        entry = mkentry(args.ssid, key_mgmt="NONE")
+        network.opts["key_mgmt"] = "NONE"
     else:
         # check passphrase length
         l = len(args.passphrase)
         if l < 8 or l > 63:
             print("Passphrase must be 8..63 characters.")
             exit(1)
-        entry = wpa_passphrase(args.ssid, args.passphrase)
+        network.opts["psk"] = '"{}"'.format(args.passphrase)
 
     if args.print:
-        print(entry)
+        print(network)
         return
 
     try:
-        cfile = mkconfigfile(args.ssid)
-        cfile.write(entry)
+        network.write(network_dir=args.directory,
+                      overwrite=args.force)
     except OSError, e:
         print("Couldn't write config file: {}".format(e))
         exit(1)
-    cfile.close()
+    except FileExistsError, e:
+        print("Config file for '{}' already exists.".format(network.ssid),
+              "Refusing to overwrite unless explicitly told to. (-f/--force)")
+        exit(1)
 
 
 def make(args):
@@ -176,7 +191,7 @@ def make(args):
     config += "\n\n"
     config += config_head
     config += "\n\n"
-    config += merge_files()
+    config += merge_cfiles(args.directory)
     config += "\n\n"
     config += config_tail
 
@@ -195,13 +210,14 @@ def make(args):
         exit(1)
 
 
-def list_networks(_):
-    for network in os.listdir(NETWORK_DIR):
-        print(os.path.splitext(network)[0])
+def list_networks(args):
+    for cfile in os.listdir(args.directory):
+        if cfile.endswith(".conf"):
+            print(os.path.splitext(cfile)[0])
 
 
 def delete(args):
-    cfile = cfile_path(args.ssid)
+    cfile = cfile_path(args.ssid, args.directory)
     if not os.path.isfile(cfile):
         print(
             "Network '{}' is not configured with wpa_config.".format(cfile))
@@ -210,7 +226,7 @@ def delete(args):
 
 
 def show(args):
-    cfile = cfile_path(args.ssid)
+    cfile = cfile_path(args.ssid, args.directory)
     if not os.path.isfile(cfile):
         print(
             "Network '{}' is not configured with wpa_config.".format(cfile))
@@ -224,14 +240,14 @@ def edit(args):
     if editor is None:
         print("You don't appear to have an editor set.")
         exit(1)
-    cfile = cfile_path(args.ssid)
+    cfile = cfile_path(args.ssid, args.directory)
     if not os.path.isfile(cfile) and not args.create:
         print("Config for '{}' does not exist. Use -c to create it.".format(
             args.ssid))
         exit(1)
     try:
         subprocess.call([editor, cfile])
-    except Exception, e:
+    except OSError, e:
         print("Failed to invoke editor: {}".format(e))
 
 
@@ -239,43 +255,60 @@ def main():
     parser = argparse.ArgumentParser()
     commands = parser.add_subparsers()
 
+    def ssid_opt(parser):
+        parser.add_argument("ssid", type=str, help="network name")
+
+    def dir_opt(parser):
+        parser.add_argument(
+            "-d", "--directory", type=str, default=NETWORK_DIR,
+            help="directory to use as base (default: {})".format(NETWORK_DIR))
+
     add_mode = commands.add_parser("add", help="add a network")
-    add_mode.add_argument("ssid", type=str, help="network name")
+
+    ssid_opt(add_mode)
     add_mode.add_argument("passphrase", type=str, help="wpa passphrase",
                           nargs="?", default="")
+    dir_opt(add_mode)
     add_mode.add_argument("-p", "--print", action="store_true",
                           help="print config instead of writing it")
-    #add_mode.add_argument("-d", "--directory", type=str,
-                          #help="directory to use as base (default: {})".format(
-                              #CONFIG_ROOT))
-    add_mode.add_argument("-o", "--open", action="store_true",
-                          help="configure for an open network")
+    add_mode.add_argument("-f", "--force", action="store_true",
+                          help="overwrite existing config file")
+
+    netopts = add_mode.add_argument_group("network options")
+    netopts.add_argument("-o", "--open", action="store_true",
+                         help="configure for an open network")
+
     add_mode.set_defaults(func=add)
 
     delete_mode = commands.add_parser("del", help="remove a network")
-    delete_mode.add_argument("ssid", type=str, help="network name")
+    ssid_opt(delete_mode)
+    dir_opt(delete_mode)
     delete_mode.set_defaults(func=delete)
 
-    make_mode = commands.add_parser("make", help="create the config")
-    make_mode.add_argument("-p", "--print", action="store_true",
-                           help="print config instead of writing it")
-    make_mode.set_defaults(func=make)
-
-    list_mode = commands.add_parser("list", help="list configured networks")
-    list_mode.set_defaults(func=list_networks)
-
     show_mode = commands.add_parser("show", help="show network configuration")
-    show_mode.add_argument("ssid", type=str, help="network name")
+    ssid_opt(show_mode)
+    dir_opt(show_mode)
     show_mode.set_defaults(func=show)
 
     edit_mode = commands.add_parser(
         "edit", help="edit a network with an editor")
-    edit_mode.add_argument("ssid", type=str, help="network name")
+    ssid_opt(edit_mode)
+    dir_opt(edit_mode)
     edit_mode.add_argument("-c", "--create", action="store_true",
                            help="create the config file if it doesn't exist")
     edit_mode.set_defaults(func=edit)
 
-    help_mode = commands.add_parser("help", help="print this help")
+    list_mode = commands.add_parser("list", help="list configured networks")
+    dir_opt(list_mode)
+    list_mode.set_defaults(func=list_networks)
+
+    make_mode = commands.add_parser("make", help="create the config")
+    dir_opt(make_mode)
+    make_mode.add_argument("-p", "--print", action="store_true",
+                           help="print config instead of writing it")
+    make_mode.set_defaults(func=make)
+
+    help_mode = commands.add_parser("help", help="print help for a mode")
     help_mode.set_defaults(func=lambda _: parser.print_help())
 
     args = parser.parse_args()

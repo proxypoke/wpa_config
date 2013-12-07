@@ -2,3 +2,9 @@
 *.ropeproject
 
 *.html
+
+.ropeproject
+.coverage
+
+MANIFEST
+dist

@@ -113,6 +113,7 @@ def merge_cfiles(network_dir=NETWORK_DIR):
     for cfile in cfiles:
         with open(cfile) as f:
             merge += f.read()
+        merge += "\n\n"
     return merge
 
 
